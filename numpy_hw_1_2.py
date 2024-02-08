@@ -6,11 +6,11 @@ np.random.seed(0)
 X, y = skds.make_blobs(200, centers=2, cluster_std=0.9)
 X[0] += 1.5
 
-def activation_func(x):
+def heavyside(x):
     return np.where(x > 0, 1, 0)
 
-def perc(w, x):
-    return activation_func(np.dot(x, w) + bias)
+def predict(w, x):
+    return heavyside(np.dot(x, w))
 
 def plot_decision_boundary(pred_func, close_fig=True):
     x_min, x_max = X[:, 0].min() - .5, X[:, 0].max() + .5
@@ -19,7 +19,8 @@ def plot_decision_boundary(pred_func, close_fig=True):
 
     xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
 
-    Z = pred_func(np.c_[xx.ravel(), yy.ravel()])
+    flat = np.c_[xx.ravel(), yy.ravel()]
+    Z = pred_func(np.hstack((np.ones((flat.shape[0], 1)), flat)))
     Z = Z.reshape(xx.shape)
 
     plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral)
@@ -33,73 +34,44 @@ def plot_decision_boundary(pred_func, close_fig=True):
 def train_and_visualize():
     global prev_error, error, prev_weights, weights
 
-    prediction = perc(weights, X)
+    prediction = predict(weights, np.hstack((np.ones((X.shape[0], 1)), X)))
     diff = y - prediction
     prev_error = error
     error = np.mean(np.abs(diff))
+    plot_decision_boundary(lambda x: predict(weights, x))
 
     prev_weights = weights
-    weights = weights + LR*np.dot(X.T, diff)
+    weights = weights + LR*np.dot(np.vstack((np.ones((1, X.T.shape[1])), X.T)), diff)
 
 
 success = False
-LR = 0.1
+LR = 0.01
+patience = 50
 
-bias_min = -20
-bias_max = 20
-bias_step = 1
-bias = bias_min - bias_step
+prev_error = 1.0
+error = prev_error
+min_error = error
+prev_weights = 2*np.random.random((3,))-1
+weights = prev_weights
+best_weights = weights
 
-min_errors = {}
-min_errors[f"bias={bias}"] = 1.0
-patience = 20
+while not success:
+    while prev_error > error :
+        train_and_visualize()
+        if error < min_error or error == 0:
+            min_error = error
+            best_weights = prev_weights
+            if error == 0: break
 
-best_weights_dict = {}
-
-while bias < bias_max and min_errors[f"bias={round(bias, 2)}"] > 0:
-    bias += bias_step
-
-    success = False
-    prev_error = 2.0
-    error = 1.0
-    min_error = error
-    np.random.seed(10000000)
-    prev_weights = tuple(2*np.random.random((2,))-1)
-    weights = prev_weights
-    best_weights = weights
-
-    while not success:
-        while prev_error > error :
+    success = True
+    if min_error > 0:
+        for i in range(patience):
             train_and_visualize()
             if error < min_error or error == 0:
                 min_error = error
                 best_weights = prev_weights
-    
-        success = True
-
-        if min_error > 0:
-            for i in range(patience):
-                train_and_visualize()
-                if error < min_error:
-                    min_error = error
-                    best_weights = prev_weights
-                    success = False
-                    break
-
-        if success == True :
-            round_bias = round(bias, 2)
-            min_errors[f"bias={round_bias}"] = min_error
-            best_weights_dict[f"bias={round_bias}"] = best_weights
-            print(f"Min error = {min_error} for bias = {round_bias}; Best weights: w1 = {best_weights[0]}; w2 = {best_weights[1]};")
-
-key = ""
-min = 1
-for i in min_errors:
-    if min_errors[i] < min:
-        key = i
-        min = min_errors[i]
+                if error > 0: success = False
+                break
         
-bias = float(key[5:])
-weights = best_weights_dict[key]
-print(f"The best {key}; min error = {min}; Best weights: w1 = {weights[0]}; w2 = {weights[1]};")
-plot_decision_boundary(lambda x: perc(weights, x), False)
+print(f"Min error = {min_error}; Best weights: w_bias = {best_weights[0]}; w1 = {best_weights[1]}; w2 = {best_weights[2]}")
+plot_decision_boundary(lambda x: predict(best_weights, x), False)

@@ -6,13 +6,11 @@ np.random.seed(0)
 X, y = skds.make_blobs(200, centers=2, cluster_std=0.9)
 X[0] += 1.5
 
-def activation_func(x):
-    res = np.where(x > 0, 1, 0)
-    return res
+def heavyside(x):
+    return np.where(x > 0, 1, 0)
 
-def perc(w, x):
-    res = activation_func(np.dot(x, w))
-    return res
+def predict(w, x):
+    return heavyside(np.dot(x, w))
 
 def plot_decision_boundary(pred_func, close_fig=True):
     x_min, x_max = X[:, 0].min() - .5, X[:, 0].max() + .5
@@ -34,11 +32,11 @@ def plot_decision_boundary(pred_func, close_fig=True):
 
 def train_and_visualize(close_fig=True):
     global prev_error, error, prev_weights, weights
-    prediction = perc(weights, X)
+    prediction = predict(weights, X)
     diff = y - prediction
     prev_error = error
     error = np.mean(np.abs(diff))
-    plot_decision_boundary(lambda x: perc(weights, x), close_fig)
+    plot_decision_boundary(lambda x: predict(weights, x), close_fig)
 
     prev_weights = weights
     weights = weights + LR*np.dot(X.T, diff)
@@ -46,9 +44,10 @@ def train_and_visualize(close_fig=True):
 success = False
 LR = 1.1
 patience = 10
+
 min_errors = {}
  
-while(True):
+while True:
     LR -= 0.1
     if LR < 0.1 : break
     success = False
@@ -65,16 +64,17 @@ while(True):
             if error < min_error or error == 0:
                 min_error = error
                 best_weights = prev_weights
+                if error == 0: break
     
         success = True
 
         if min_error > 0:
             for i in range(patience):
                 train_and_visualize()
-                if error < min_error:
+                if error < min_error or error == 0:
                     min_error = error
                     best_weights = prev_weights
-                    success = False
+                    if error > 0: success = False
                     break
 
         if success == True :
